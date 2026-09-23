@@ -5,16 +5,19 @@ use comfy_table::presets::UTF8_FULL;
 use comfy_table::{Cell, CellAlignment, Color, ContentArrangement, Table};
 use futures::future::join_all;
 
+use super::args::StatusArgs;
 use crate::collector::Collector;
 use crate::config::{ConfigManager, ServerConfig};
-use super::args::StatusArgs;
 
 pub async fn handle_status(args: StatusArgs) -> Result<()> {
     let config = ConfigManager::load()?;
 
     if config.servers.is_empty() {
         println!("{}", "No servers registered yet.".yellow());
-        println!("Run {} to register a server.", "flare server add".cyan().bold());
+        println!(
+            "Run {} to register a server.",
+            "flare server add".cyan().bold()
+        );
         return Ok(());
     }
 
@@ -29,7 +32,10 @@ pub async fn handle_status(args: StatusArgs) -> Result<()> {
         None => {
             let servers = config.get_servers_filtered(args.tag.as_deref());
             if servers.is_empty() {
-                println!("{}", "No servers matched the specified tag filter.".yellow());
+                println!(
+                    "{}",
+                    "No servers matched the specified tag filter.".yellow()
+                );
                 return Ok(());
             }
             inspect_all_servers(&servers, args.json, args.timeout).await
@@ -38,7 +44,11 @@ pub async fn handle_status(args: StatusArgs) -> Result<()> {
 }
 
 /// Detailed single-server inspection view.
-async fn inspect_single_server(server: &ServerConfig, json_output: bool, timeout_secs: u64) -> Result<()> {
+async fn inspect_single_server(
+    server: &ServerConfig,
+    json_output: bool,
+    timeout_secs: u64,
+) -> Result<()> {
     if !json_output {
         println!(
             "{} Querying server {} ({}) metrics...",
@@ -48,7 +58,8 @@ async fn inspect_single_server(server: &ServerConfig, json_output: bool, timeout
         );
     }
 
-    let (metrics, duration_ms) = Collector::collect(server, timeout_secs).await
+    let (metrics, duration_ms) = Collector::collect(server, timeout_secs)
+        .await
         .with_context(|| format!("Failed to collect metrics from server '{}'", server.id))?;
 
     if json_output {
@@ -62,12 +73,22 @@ async fn inspect_single_server(server: &ServerConfig, json_output: bool, timeout
     println!(
         "{} {}",
         "=== SERVER DASHBOARD:".bold().cyan(),
-        format!("{} ({}) ===", server.name, server.id).bold().white()
+        format!("{} ({}) ===", server.name, server.id)
+            .bold()
+            .white()
     );
     println!("  {:<14}: {}", "Host".dimmed(), server.host_port_str());
     println!("  {:<14}: {}", "User".dimmed(), server.user);
-    println!("  {:<14}: {}", "Remote Host".dimmed(), metrics.hostname.bold());
-    println!("  {:<14}: {}", "Uptime".dimmed(), metrics.format_uptime().green());
+    println!(
+        "  {:<14}: {}",
+        "Remote Host".dimmed(),
+        metrics.hostname.bold()
+    );
+    println!(
+        "  {:<14}: {}",
+        "Uptime".dimmed(),
+        metrics.format_uptime().green()
+    );
     println!("  {:<14}: {} ms", "Probe Latency".dimmed(), duration_ms);
     println!();
 
@@ -120,7 +141,10 @@ async fn inspect_single_server(server: &ServerConfig, json_output: bool, timeout
                 Cell::new(&gpu.name),
                 Cell::new(format!("{:.1}%", gpu.utilization_percent)),
                 Cell::new(format!("{:.0}°C", gpu.temperature_c)),
-                Cell::new(format!("{:.0} MB / {:.0} MB", gpu.memory_used_mb, gpu.memory_total_mb)),
+                Cell::new(format!(
+                    "{:.0} MB / {:.0} MB",
+                    gpu.memory_used_mb, gpu.memory_total_mb
+                )),
             ]);
         }
         println!("{gpu_table}");
@@ -134,8 +158,26 @@ async fn inspect_single_server(server: &ServerConfig, json_output: bool, timeout
             "Docker Containers:".bold().cyan(),
             metrics.docker.total.to_string().bold(),
             metrics.docker.running.to_string().green().bold(),
-            metrics.docker.restarting.to_string().color(if metrics.docker.restarting > 0 { "red" } else { "green" }).bold(),
-            metrics.docker.stopped.to_string().color(if metrics.docker.stopped > 0 { "yellow" } else { "white" }).bold()
+            metrics
+                .docker
+                .restarting
+                .to_string()
+                .color(if metrics.docker.restarting > 0 {
+                    "red"
+                } else {
+                    "green"
+                })
+                .bold(),
+            metrics
+                .docker
+                .stopped
+                .to_string()
+                .color(if metrics.docker.stopped > 0 {
+                    "yellow"
+                } else {
+                    "white"
+                })
+                .bold()
         );
 
         if !metrics.docker.containers.is_empty() {
@@ -170,14 +212,21 @@ async fn inspect_single_server(server: &ServerConfig, json_output: bool, timeout
             println!("{container_table}");
         }
     } else {
-        println!("{}", "Docker: Not installed or daemon not responding".yellow());
+        println!(
+            "{}",
+            "Docker: Not installed or daemon not responding".yellow()
+        );
     }
 
     Ok(())
 }
 
 /// Synthesis multi-server parallel inspection view.
-async fn inspect_all_servers(servers: &[&ServerConfig], json_output: bool, timeout_secs: u64) -> Result<()> {
+async fn inspect_all_servers(
+    servers: &[&ServerConfig],
+    json_output: bool,
+    timeout_secs: u64,
+) -> Result<()> {
     if !json_output {
         println!(
             "{} Gathering real-time metrics across {} server(s) in parallel...",
@@ -252,7 +301,8 @@ async fn inspect_all_servers(servers: &[&ServerConfig], json_output: bool, timeo
                     metrics.memory.percent,
                     metrics.memory.used_gib(),
                     metrics.memory.total_gib()
-                )).fg(if metrics.memory.percent >= 90.0 {
+                ))
+                .fg(if metrics.memory.percent >= 90.0 {
                     Color::Red
                 } else if metrics.memory.percent >= 80.0 {
                     Color::Yellow
@@ -265,7 +315,8 @@ async fn inspect_all_servers(servers: &[&ServerConfig], json_output: bool, timeo
                     metrics.disk.percent,
                     metrics.disk.used_gib(),
                     metrics.disk.total_gib()
-                )).fg(if metrics.disk.percent >= 90.0 {
+                ))
+                .fg(if metrics.disk.percent >= 90.0 {
                     Color::Red
                 } else if metrics.disk.percent >= 80.0 {
                     Color::Yellow
@@ -276,11 +327,17 @@ async fn inspect_all_servers(servers: &[&ServerConfig], json_output: bool, timeo
                 let gpu_str = if metrics.gpus.is_empty() {
                     "-".to_string()
                 } else {
-                    format!("{:.0}% ({}°C)", metrics.gpus[0].utilization_percent, metrics.gpus[0].temperature_c)
+                    format!(
+                        "{:.0}% ({}°C)",
+                        metrics.gpus[0].utilization_percent, metrics.gpus[0].temperature_c
+                    )
                 };
 
                 let docker_cell = if metrics.docker.installed {
-                    let text = format!("{}/{}/{}", metrics.docker.running, metrics.docker.restarting, metrics.docker.stopped);
+                    let text = format!(
+                        "{}/{}/{}",
+                        metrics.docker.running, metrics.docker.restarting, metrics.docker.stopped
+                    );
                     if metrics.docker.restarting > 0 {
                         Cell::new(text).fg(Color::Red)
                     } else if metrics.docker.stopped > 0 {

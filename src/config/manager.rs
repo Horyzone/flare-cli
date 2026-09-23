@@ -57,8 +57,8 @@ impl ConfigManager {
                 .with_context(|| format!("Failed to create config dir {}", parent.display()))?;
         }
 
-        let yaml = serde_yaml::to_string(config)
-            .context("Failed to serialize configuration to YAML")?;
+        let yaml =
+            serde_yaml::to_string(config).context("Failed to serialize configuration to YAML")?;
 
         fs::write(&path, yaml)
             .with_context(|| format!("Failed to write config file to {}", path.display()))?;
@@ -100,8 +100,9 @@ impl ConfigManager {
         let header = "# Flare CLI Configuration\n# Store servers and alert settings here.\n\n";
         let full_content = format!("{}{}", header, yaml);
 
-        fs::write(path, full_content)
-            .with_context(|| format!("Failed to write initial config file at {}", path.display()))?;
+        fs::write(path, full_content).with_context(|| {
+            format!("Failed to write initial config file at {}", path.display())
+        })?;
 
         Ok(default_config)
     }
@@ -124,7 +125,11 @@ impl AppConfig {
 
     /// Removes a server by ID. Returns the removed server.
     pub fn remove_server(&mut self, id: &str) -> Result<ServerConfig> {
-        if let Some(index) = self.servers.iter().position(|s| s.id.eq_ignore_ascii_case(id)) {
+        if let Some(index) = self
+            .servers
+            .iter()
+            .position(|s| s.id.eq_ignore_ascii_case(id))
+        {
             Ok(self.servers.remove(index))
         } else {
             bail!("No server found with ID '{}'", id);

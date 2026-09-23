@@ -1,14 +1,7 @@
 use clap::Parser;
 use colored::Colorize;
+use flare_cli::{run, Cli};
 use std::process::exit;
-
-mod alerts;
-mod cli;
-mod collector;
-mod config;
-mod ssh;
-
-use cli::{Cli, run};
 
 #[tokio::main]
 async fn main() {

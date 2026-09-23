@@ -54,15 +54,25 @@ impl SshClient {
         match timeout(timeout_duration, TcpStream::connect(&addr)).await {
             Ok(Ok(_stream)) => Ok(start.elapsed()),
             Ok(Err(e)) => bail!("TCP connection to {} failed: {}", addr, e),
-            Err(_) => bail!("TCP connection to {} timed out after {:?}", addr, timeout_duration),
+            Err(_) => bail!(
+                "TCP connection to {} timed out after {:?}",
+                addr,
+                timeout_duration
+            ),
         }
     }
 
     /// Checks full SSH reachability & authentication.
     pub async fn check_connection(server: &ServerConfig) -> Result<Duration> {
         // Step 1: Rapid TCP check (2s timeout)
-        let _ = Self::check_tcp(&server.host, server.port, Duration::from_secs(2)).await
-            .with_context(|| format!("Host {}:{} is not reachable on TCP", server.host, server.port))?;
+        let _ = Self::check_tcp(&server.host, server.port, Duration::from_secs(2))
+            .await
+            .with_context(|| {
+                format!(
+                    "Host {}:{} is not reachable on TCP",
+                    server.host, server.port
+                )
+            })?;
 
         // Step 2: SSH authentication probe
         let start = Instant::now();
@@ -75,7 +85,12 @@ impl SshClient {
         let output = timeout(probe_timeout, cmd.output())
             .await
             .map_err(|_| anyhow::anyhow!("SSH connection to {} timed out after 6s", server.id))?
-            .with_context(|| format!("Failed to execute local ssh binary for server {}", server.id))?;
+            .with_context(|| {
+                format!(
+                    "Failed to execute local ssh binary for server {}",
+                    server.id
+                )
+            })?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -83,7 +98,11 @@ impl SshClient {
                 "SSH authentication/handshake failed for {} ({}): {}",
                 server.id,
                 server.target_str(),
-                if stderr.is_empty() { "Authentication failed or host refused key" } else { &stderr }
+                if stderr.is_empty() {
+                    "Authentication failed or host refused key"
+                } else {
+                    &stderr
+                }
             );
         }
 
@@ -91,7 +110,11 @@ impl SshClient {
     }
 
     /// Runs a command remotely over SSH asynchronously and returns stdout.
-    pub async fn run_command(server: &ServerConfig, command_str: &str, timeout_secs: u64) -> Result<String> {
+    pub async fn run_command(
+        server: &ServerConfig,
+        command_str: &str,
+        timeout_secs: u64,
+    ) -> Result<String> {
         let mut cmd = TokioCommand::new("ssh");
         let args = Self::build_ssh_args(server, false);
         cmd.args(&args);
@@ -103,7 +126,13 @@ impl SshClient {
         let time_limit = Duration::from_secs(timeout_secs);
         let output = timeout(time_limit, cmd.output())
             .await
-            .map_err(|_| anyhow::anyhow!("Command execution on {} timed out after {}s", server.id, timeout_secs))?
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "Command execution on {} timed out after {}s",
+                    server.id,
+                    timeout_secs
+                )
+            })?
             .with_context(|| format!("Failed to invoke ssh binary for {}", server.id))?;
 
         if !output.status.success() {
@@ -134,13 +163,14 @@ impl SshClient {
             .stderr(Stdio::inherit());
 
         // Under Unix, we can cleanly run status so signals and exit are passed back
-        let status = cmd.status().with_context(|| {
-            format!("Failed to start interactive SSH session to {}", server.id)
-        })?;
+        let status = cmd
+            .status()
+            .with_context(|| format!("Failed to start interactive SSH session to {}", server.id))?;
 
         if !status.success() {
             if let Some(code) = status.code() {
-                if code != 0 && code != 130 { // 130 is Ctrl+C
+                if code != 0 && code != 130 {
+                    // 130 is Ctrl+C
                     eprintln!("SSH session exited with code {}", code);
                 }
             }
@@ -170,7 +200,10 @@ mod tests {
         assert!(non_interactive_args.contains(&"-p".to_string()));
         assert!(non_interactive_args.contains(&"22".to_string()));
         assert!(non_interactive_args.contains(&"BatchMode=yes".to_string()));
-        assert_eq!(non_interactive_args.last().unwrap(), "root@server.example.com");
+        assert_eq!(
+            non_interactive_args.last().unwrap(),
+            "root@server.example.com"
+        );
 
         let interactive_args = SshClient::build_ssh_args(&server, true);
         assert!(interactive_args.contains(&"-t".to_string()));

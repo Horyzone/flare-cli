@@ -10,6 +10,10 @@ description = "Lightweight, agentless CLI operations and real-time monitoring to
 name = "flare"
 path = "src/main.rs"
 
+[lib]
+name = "flare_cli"
+path = "src/lib.rs"
+
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
 tokio = { version = "1.43", features = ["full"] }

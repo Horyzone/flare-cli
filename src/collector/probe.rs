@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 use std::time::Instant;
 
+use super::models::ServerMetrics;
 use crate::config::ServerConfig;
 use crate::ssh::SshClient;
-use super::models::ServerMetrics;
 
 /// Complete composite probe script that runs on the remote host without any external dependencies.
 /// Prefers Python 3 (standard library only) and falls back to a POSIX shell + awk script.
@@ -197,7 +197,10 @@ pub struct Collector;
 
 impl Collector {
     /// Executes the remote probe script over SSH and parses the resulting metrics.
-    pub async fn collect(server: &ServerConfig, timeout_secs: u64) -> Result<(ServerMetrics, u128)> {
+    pub async fn collect(
+        server: &ServerConfig,
+        timeout_secs: u64,
+    ) -> Result<(ServerMetrics, u128)> {
         let start = Instant::now();
         let raw_output = SshClient::run_command(server, REMOTE_PROBE_SCRIPT, timeout_secs)
             .await
@@ -229,14 +232,13 @@ impl Collector {
             raw
         };
 
-        let metrics: ServerMetrics = serde_json::from_str(json_str.trim())
-            .with_context(|| {
-                format!(
-                    "Failed to deserialize metrics JSON from server '{}'. Raw output was:\n{}",
-                    server_id,
-                    raw.chars().take(400).collect::<String>()
-                )
-            })?;
+        let metrics: ServerMetrics = serde_json::from_str(json_str.trim()).with_context(|| {
+            format!(
+                "Failed to deserialize metrics JSON from server '{}'. Raw output was:\n{}",
+                server_id,
+                raw.chars().take(400).collect::<String>()
+            )
+        })?;
 
         Ok(metrics)
     }

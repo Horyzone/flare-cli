@@ -31,10 +31,18 @@ impl Notifier {
     async fn dispatch_ntfy(client: &reqwest::Client, url: &str, alerts: &[Alert]) -> Result<()> {
         let has_critical = alerts.iter().any(|a| a.severity == AlertSeverity::Critical);
         let priority = if has_critical { "urgent" } else { "high" };
-        let tags = if has_critical { "rotating_light,warning,server" } else { "warning,server" };
+        let tags = if has_critical {
+            "rotating_light,warning,server"
+        } else {
+            "warning,server"
+        };
 
         let title = if alerts.len() == 1 {
-            format!("🚨 Flare Alert: {} ({})", alerts[0].server_name, alerts[0].severity.as_str())
+            format!(
+                "🚨 Flare Alert: {} ({})",
+                alerts[0].server_name,
+                alerts[0].severity.as_str()
+            )
         } else {
             format!("🚨 Flare: {} alerts triggered", alerts.len())
         };
@@ -47,10 +55,7 @@ impl Notifier {
             };
             body.push_str(&format!(
                 "{} **[{}]** `{}`: {}\n\n",
-                emoji,
-                alert.server_name,
-                alert.target,
-                alert.message
+                emoji, alert.server_name, alert.target, alert.message
             ));
         }
 
@@ -121,7 +126,11 @@ impl Notifier {
     }
 
     /// Sends generic JSON payload to any standard webhook.
-    async fn dispatch_generic_json(client: &reqwest::Client, url: &str, alerts: &[Alert]) -> Result<()> {
+    async fn dispatch_generic_json(
+        client: &reqwest::Client,
+        url: &str,
+        alerts: &[Alert],
+    ) -> Result<()> {
         let payload = serde_json::json!({
             "source": "flare-cli",
             "total_alerts": alerts.len(),
@@ -138,7 +147,11 @@ impl Notifier {
         if !resp.status().is_success() {
             let status = resp.status();
             let text = resp.text().await.unwrap_or_default();
-            anyhow::bail!("Generic webhook failed with HTTP status {}: {}", status, text);
+            anyhow::bail!(
+                "Generic webhook failed with HTTP status {}: {}",
+                status,
+                text
+            );
         }
 
         Ok(())

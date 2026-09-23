@@ -6,9 +6,9 @@ use comfy_table::{Cell, CellAlignment, Color, ContentArrangement, Table};
 use futures::future::join_all;
 use inquire::{Confirm, CustomType, Select, Text};
 
+use super::args::{ServerAddArgs, ServerListArgs, ServerRemoveArgs};
 use crate::config::{ConfigManager, ServerConfig};
 use crate::ssh::SshClient;
-use super::args::{ServerAddArgs, ServerListArgs, ServerRemoveArgs};
 
 pub async fn handle_add(args: ServerAddArgs) -> Result<()> {
     let mut config = ConfigManager::load()?;
@@ -31,9 +31,7 @@ pub async fn handle_add(args: ServerAddArgs) -> Result<()> {
 
     let name = match args.name {
         Some(val) => val.trim().to_string(),
-        None => Text::new("Display name:")
-            .with_default(&id)
-            .prompt()?,
+        None => Text::new("Display name:").with_default(&id).prompt()?,
     };
 
     let host = match args.host {
@@ -56,17 +54,16 @@ pub async fn handle_add(args: ServerAddArgs) -> Result<()> {
 
     let user = match args.user {
         Some(u) => u.trim().to_string(),
-        None => Text::new("SSH user:")
-            .with_default("root")
-            .prompt()?,
+        None => Text::new("SSH user:").with_default("root").prompt()?,
     };
 
     let key_path = match args.key_path {
         Some(k) => Some(k.trim().to_string()),
         None => {
-            let key_input = Text::new("Custom SSH key path (optional, leave empty for default agent/config):")
-                .with_placeholder("~/.ssh/id_ed25519")
-                .prompt()?;
+            let key_input =
+                Text::new("Custom SSH key path (optional, leave empty for default agent/config):")
+                    .with_placeholder("~/.ssh/id_ed25519")
+                    .prompt()?;
             let trimmed = key_input.trim();
             if trimmed.is_empty() {
                 None
@@ -101,7 +98,10 @@ pub async fn handle_add(args: ServerAddArgs) -> Result<()> {
     };
 
     if !args.skip_test {
-        println!("{}", format!("Testing SSH connectivity to '{}'...", new_server.id).cyan());
+        println!(
+            "{}",
+            format!("Testing SSH connectivity to '{}'...", new_server.id).cyan()
+        );
         match SshClient::check_connection(&new_server).await {
             Ok(duration) => {
                 println!(
@@ -130,7 +130,10 @@ pub async fn handle_add(args: ServerAddArgs) -> Result<()> {
         "{} Server '{}' successfully added to {}",
         "✔".green().bold(),
         id.bold(),
-        ConfigManager::config_file_path()?.display().to_string().underline()
+        ConfigManager::config_file_path()?
+            .display()
+            .to_string()
+            .underline()
     );
 
     Ok(())
@@ -142,8 +145,14 @@ pub async fn handle_list(args: ServerListArgs) -> Result<()> {
 
     if servers.is_empty() {
         if config.servers.is_empty() {
-            println!("{}", "No servers registered yet in ~/.config/flare/config.yaml".yellow());
-            println!("Run {} to register a server.", "flare server add".cyan().bold());
+            println!(
+                "{}",
+                "No servers registered yet in ~/.config/flare/config.yaml".yellow()
+            );
+            println!(
+                "Run {} to register a server.",
+                "flare server add".cyan().bold()
+            );
         } else {
             println!("{}", "No servers match the specified tag filter.".yellow());
         }
@@ -241,9 +250,12 @@ pub async fn handle_remove(args: ServerRemoveArgs) -> Result<()> {
     };
 
     if !args.force {
-        let confirm = Confirm::new(&format!("Are you sure you want to remove server '{}'?", server_id))
-            .with_default(false)
-            .prompt()?;
+        let confirm = Confirm::new(&format!(
+            "Are you sure you want to remove server '{}'?",
+            server_id
+        ))
+        .with_default(false)
+        .prompt()?;
         if !confirm {
             println!("{}", "Operation cancelled.".yellow());
             return Ok(());

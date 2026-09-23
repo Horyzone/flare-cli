@@ -1,6 +1,6 @@
+use super::models::{Alert, AlertSeverity, AlertType};
 use crate::collector::ServerMetrics;
 use crate::config::{AlertsConfig, ServerConfig};
-use super::models::{Alert, AlertSeverity, AlertType};
 
 pub struct AlertChecker;
 
@@ -21,7 +21,10 @@ impl AlertChecker {
                     AlertSeverity::Critical,
                     AlertType::HostUnreachable,
                     "host",
-                    format!("Server is unreachable or SSH connection failed: {}", err_msg),
+                    format!(
+                        "Server is unreachable or SSH connection failed: {}",
+                        err_msg
+                    ),
                 ));
             }
             Ok(metrics) => {
@@ -221,20 +224,35 @@ mod tests {
         let alerts = AlertChecker::evaluate(&server, Ok(&metrics), &config);
         assert_eq!(alerts.len(), 5);
 
-        let cpu_alert = alerts.iter().find(|a| a.alert_type == AlertType::HighCpu).unwrap();
+        let cpu_alert = alerts
+            .iter()
+            .find(|a| a.alert_type == AlertType::HighCpu)
+            .unwrap();
         assert_eq!(cpu_alert.severity, AlertSeverity::Critical);
 
-        let ram_alert = alerts.iter().find(|a| a.alert_type == AlertType::HighRam).unwrap();
+        let ram_alert = alerts
+            .iter()
+            .find(|a| a.alert_type == AlertType::HighRam)
+            .unwrap();
         assert_eq!(ram_alert.severity, AlertSeverity::Warning);
 
-        let disk_alert = alerts.iter().find(|a| a.alert_type == AlertType::HighDisk).unwrap();
+        let disk_alert = alerts
+            .iter()
+            .find(|a| a.alert_type == AlertType::HighDisk)
+            .unwrap();
         assert_eq!(disk_alert.severity, AlertSeverity::Warning);
 
-        let restart_alert = alerts.iter().find(|a| a.alert_type == AlertType::ContainerRestarting).unwrap();
+        let restart_alert = alerts
+            .iter()
+            .find(|a| a.alert_type == AlertType::ContainerRestarting)
+            .unwrap();
         assert_eq!(restart_alert.severity, AlertSeverity::Critical);
         assert!(restart_alert.message.contains("crash-app"));
 
-        let stopped_alert = alerts.iter().find(|a| a.alert_type == AlertType::ContainerStopped).unwrap();
+        let stopped_alert = alerts
+            .iter()
+            .find(|a| a.alert_type == AlertType::ContainerStopped)
+            .unwrap();
         assert_eq!(stopped_alert.severity, AlertSeverity::Warning);
         assert!(stopped_alert.message.contains("old-worker"));
     }

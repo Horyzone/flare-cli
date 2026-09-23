@@ -32,12 +32,10 @@ impl AlertCache {
     /// Loads the cache from disk, or returns an empty cache if it doesn't exist.
     pub fn load() -> Self {
         match Self::cache_file_path() {
-            Ok(path) if path.exists() => {
-                fs::read_to_string(&path)
-                    .ok()
-                    .and_then(|data| serde_json::from_str::<Self>(&data).ok())
-                    .unwrap_or_default()
-            }
+            Ok(path) if path.exists() => fs::read_to_string(&path)
+                .ok()
+                .and_then(|data| serde_json::from_str::<Self>(&data).ok())
+                .unwrap_or_default(),
             _ => Self::default(),
         }
     }
@@ -46,12 +44,12 @@ impl AlertCache {
     pub fn save(&self) -> Result<()> {
         let path = Self::cache_file_path()?;
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("Failed to create alert cache dir {}", parent.display()))?;
+            fs::create_dir_all(parent).with_context(|| {
+                format!("Failed to create alert cache dir {}", parent.display())
+            })?;
         }
 
-        let json = serde_json::to_string_pretty(self)
-            .context("Failed to serialize alert cache")?;
+        let json = serde_json::to_string_pretty(self).context("Failed to serialize alert cache")?;
 
         fs::write(&path, json)
             .with_context(|| format!("Failed to write alert cache to {}", path.display()))?;
@@ -97,9 +95,8 @@ impl AlertCache {
     pub fn prune(&mut self, max_age_days: i64) {
         let threshold = Duration::days(max_age_days);
         let now = Utc::now();
-        self.entries.retain(|_, entry| {
-            now.signed_duration_since(entry.last_notified) < threshold
-        });
+        self.entries
+            .retain(|_, entry| now.signed_duration_since(entry.last_notified) < threshold);
     }
 }
 

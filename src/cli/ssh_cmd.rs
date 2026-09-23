@@ -2,16 +2,19 @@ use anyhow::{bail, Result};
 use colored::Colorize;
 use inquire::Select;
 
+use super::args::SshArgs;
 use crate::config::ConfigManager;
 use crate::ssh::SshClient;
-use super::args::SshArgs;
 
 pub fn handle_ssh(args: SshArgs) -> Result<()> {
     let config = ConfigManager::load()?;
 
     if config.servers.is_empty() {
         println!("{}", "No servers registered yet.".yellow());
-        println!("Run {} to add a server first.", "flare server add".cyan().bold());
+        println!(
+            "Run {} to add a server first.",
+            "flare server add".cyan().bold()
+        );
         return Ok(());
     }
 
@@ -28,11 +31,7 @@ pub fn handle_ssh(args: SshArgs) -> Result<()> {
                 .collect();
 
             let selection = Select::new("Select server to SSH into:", options).prompt()?;
-            let selected_id = selection
-                .split_whitespace()
-                .next()
-                .unwrap_or("")
-                .trim();
+            let selected_id = selection.split_whitespace().next().unwrap_or("").trim();
 
             match config.find_server(selected_id) {
                 Some(s) => s.clone(),

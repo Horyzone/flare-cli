@@ -5,17 +5,20 @@ use comfy_table::presets::UTF8_FULL;
 use comfy_table::{Cell, Color, ContentArrangement, Table};
 use futures::future::join_all;
 
+use super::args::CheckArgs;
 use crate::alerts::{Alert, AlertCache, AlertChecker, AlertSeverity, Notifier};
 use crate::collector::Collector;
 use crate::config::ConfigManager;
-use super::args::CheckArgs;
 
 pub async fn handle_check(args: CheckArgs) -> Result<()> {
     let config = ConfigManager::load()?;
 
     let servers = config.get_servers_filtered(args.tag.as_deref());
     if servers.is_empty() {
-        println!("{}", "No servers registered or matching the filter.".yellow());
+        println!(
+            "{}",
+            "No servers registered or matching the filter.".yellow()
+        );
         return Ok(());
     }
 
@@ -94,7 +97,12 @@ pub async fn handle_check(args: CheckArgs) -> Result<()> {
             Cell::new(a.alert_type.as_str()),
             Cell::new(&a.target),
             Cell::new(&a.message),
-            Cell::new(if args.dry_run { "Dry Run (Skip)" } else { "Send Webhook" }).fg(Color::Cyan),
+            Cell::new(if args.dry_run {
+                "Dry Run (Skip)"
+            } else {
+                "Send Webhook"
+            })
+            .fg(Color::Cyan),
         ]);
     }
 
@@ -133,7 +141,10 @@ pub async fn handle_check(args: CheckArgs) -> Result<()> {
     // Dispatch webhook
     match config.alerts.webhook_url.as_deref() {
         Some(url) if !url.trim().is_empty() => {
-            print!("Dispatching {} alert(s) to webhook... ", alerts_to_notify.len());
+            print!(
+                "Dispatching {} alert(s) to webhook... ",
+                alerts_to_notify.len()
+            );
             match Notifier::dispatch(url, &alerts_to_notify).await {
                 Ok(_) => {
                     println!("{}", "Sent successfully!".green().bold());
@@ -159,7 +170,10 @@ pub async fn handle_check(args: CheckArgs) -> Result<()> {
             println!(
                 "Configure {} in {} to receive notifications.",
                 "alerts.webhook_url".bold(),
-                ConfigManager::config_file_path()?.display().to_string().underline()
+                ConfigManager::config_file_path()?
+                    .display()
+                    .to_string()
+                    .underline()
             );
         }
     }

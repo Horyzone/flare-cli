@@ -72,6 +72,11 @@ impl Alert {
 
     /// Unique deduplication key for alert caching.
     pub fn cache_key(&self) -> String {
-        format!("{}:{}:{}", self.server_id, self.alert_type.as_str(), self.target)
+        format!(
+            "{}:{}:{}",
+            self.server_id,
+            self.alert_type.as_str(),
+            self.target
+        )
     }
 }
