@@ -2,6 +2,9 @@
 name = "flare-cli"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+authors = ["Simon Micheneau <contact@simon-micheneau.fr>"]
+description = "Lightweight, agentless CLI operations and real-time monitoring tool for remote Docker / Dokploy servers"
 
 [[bin]]
 name = "flare"
