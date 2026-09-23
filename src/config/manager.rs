@@ -143,3 +143,46 @@ impl AppConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_and_remove_server() {
+        let mut config = AppConfig::default();
+        let server = ServerConfig {
+            id: "dokploy-prod".to_string(),
+            name: "Dokploy Production".to_string(),
+            host: "1.2.3.4".to_string(),
+            port: 2222,
+            user: "admin".to_string(),
+            key_path: Some("~/.ssh/id_rsa".to_string()),
+            tags: vec!["prod".to_string(), "dokploy".to_string()],
+        };
+
+        assert!(config.add_server(server.clone()).is_ok());
+        // Duplicate ID should fail
+        assert!(config.add_server(server).is_err());
+
+        assert!(config.find_server("dokploy-prod").is_some());
+        assert_eq!(config.find_server("DOKPLOY-PROD").unwrap().port, 2222);
+
+        let filtered_prod = config.get_servers_filtered(Some("prod"));
+        assert_eq!(filtered_prod.len(), 1);
+
+        let filtered_dev = config.get_servers_filtered(Some("dev"));
+        assert_eq!(filtered_dev.len(), 0);
+
+        let removed = config.remove_server("dokploy-prod");
+        assert!(removed.is_ok());
+        assert_eq!(removed.unwrap().id, "dokploy-prod");
+        assert!(config.find_server("dokploy-prod").is_none());
+    }
+
+    #[test]
+    fn test_expand_path() {
+        let path = ConfigManager::expand_path("~/my_key.pem");
+        assert!(!path.to_string_lossy().starts_with("~/"));
+    }
+}

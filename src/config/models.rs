@@ -130,3 +130,36 @@ pub struct AppConfig {
     #[serde(default)]
     pub alerts: AlertsConfig,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_server_config_defaults() {
+        let yaml = r#"
+id: "test-node"
+name: "Test Node"
+host: "10.0.0.1"
+"#;
+        let server: ServerConfig = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(server.id, "test-node");
+        assert_eq!(server.port, 22);
+        assert_eq!(server.user, "root");
+        assert_eq!(server.key_path, None);
+        assert!(server.tags.is_empty());
+        assert_eq!(server.target_str(), "root@10.0.0.1");
+        assert_eq!(server.host_port_str(), "10.0.0.1:22");
+    }
+
+    #[test]
+    fn test_alerts_config_defaults() {
+        let default_alerts = AlertsConfig::default();
+        assert_eq!(default_alerts.cpu_percent, 85.0);
+        assert_eq!(default_alerts.ram_percent, 90.0);
+        assert_eq!(default_alerts.disk_percent, 85.0);
+        assert!(default_alerts.notify_stopped_containers);
+        assert!(default_alerts.notify_restarting_containers);
+        assert_eq!(default_alerts.cooldown_minutes, 60);
+    }
+}
