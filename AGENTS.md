@@ -132,6 +132,9 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 Make atomic commits at logical milestones of implementation.
 
+> **CRITICAL RULE FOR AGENTS:**
+> **NEVER run `git push`.** Always perform **local commits only** (`git commit`). The operator manages all remote pushes and branch synchronizations manually.
+
 ---
 
 ## 5. Planned Roadmap & Extensibility Points
