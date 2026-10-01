@@ -203,7 +203,11 @@ impl SshClient {
             } else {
                 format!("Process exited with status code {:?}", output.status.code())
             };
-            bail!("Remote script execution on '{}' failed: {}", server.id, details);
+            bail!(
+                "Remote script execution on '{}' failed: {}",
+                server.id,
+                details
+            );
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
