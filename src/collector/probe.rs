@@ -7,14 +7,13 @@ use crate::ssh::SshClient;
 
 /// Complete composite probe script that runs on the remote host without any external dependencies.
 /// Prefers Python 3 (standard library only) and falls back to a POSIX shell + awk script.
-pub const REMOTE_PROBE_SCRIPT: &str = r#"sh -c '
-if command -v python3 >/dev/null 2>&1; then
-python3 -c "
+pub const REMOTE_PROBE_SCRIPT: &str = r#"if command -v python3 >/dev/null 2>&1; then
+python3 << 'PYEOF'
 import json, os, socket, subprocess, sys, time
 
 def get_uptime():
     try:
-        with open(\"/proc/uptime\", \"r\") as f:
+        with open("/proc/uptime", "r") as f:
             return float(f.readline().split()[0])
     except Exception:
         return None
@@ -22,7 +21,7 @@ def get_uptime():
 def get_cpu():
     try:
         def read_stat():
-            with open(\"/proc/stat\", \"r\") as f:
+            with open("/proc/stat", "r") as f:
                 fields = [float(x) for x in f.readline().split()[1:]]
             idle = fields[3] + (fields[4] if len(fields) > 4 else 0)
             total = sum(fields)
@@ -46,48 +45,48 @@ def get_cpu():
 def get_memory():
     try:
         meminfo = {}
-        with open(\"/proc/meminfo\", \"r\") as f:
+        with open("/proc/meminfo", "r") as f:
             for line in f:
-                parts = line.split(\":\")
+                parts = line.split(":")
                 if len(parts) == 2:
                     k = parts[0].strip()
                     v = parts[1].strip().split()[0]
                     meminfo[k] = int(v) * 1024
-        total = meminfo.get(\"MemTotal\", 0)
-        avail = meminfo.get(\"MemAvailable\", meminfo.get(\"MemFree\", 0) + meminfo.get(\"Buffers\", 0) + meminfo.get(\"Cached\", 0))
+        total = meminfo.get("MemTotal", 0)
+        avail = meminfo.get("MemAvailable", meminfo.get("MemFree", 0) + meminfo.get("Buffers", 0) + meminfo.get("Cached", 0))
         used = total - avail
         pct = round((used / total * 100.0), 1) if total > 0 else 0.0
-        return {\"total_bytes\": total, \"used_bytes\": used, \"available_bytes\": avail, \"percent\": pct}
+        return {"total_bytes": total, "used_bytes": used, "available_bytes": avail, "percent": pct}
     except Exception:
-        return {\"total_bytes\": 0, \"used_bytes\": 0, \"available_bytes\": 0, \"percent\": 0.0}
+        return {"total_bytes": 0, "used_bytes": 0, "available_bytes": 0, "percent": 0.0}
 
 def get_disk():
     try:
-        st = os.statvfs(\"/\")
+        st = os.statvfs("/")
         total = st.f_blocks * st.f_frsize
         avail = st.f_bavail * st.f_frsize
         used = total - avail
         pct = round((used / total * 100.0), 1) if total > 0 else 0.0
-        return {\"total_bytes\": total, \"used_bytes\": used, \"available_bytes\": avail, \"percent\": pct}
+        return {"total_bytes": total, "used_bytes": used, "available_bytes": avail, "percent": pct}
     except Exception:
-        return {\"total_bytes\": 0, \"used_bytes\": 0, \"available_bytes\": 0, \"percent\": 0.0}
+        return {"total_bytes": 0, "used_bytes": 0, "available_bytes": 0, "percent": 0.0}
 
 def get_gpu():
     try:
         out = subprocess.check_output(
-            [\"nvidia-smi\", \"--query-gpu=name,utilization.gpu,temperature.gpu,memory.total,memory.used\", \"--format=csv,noheader,nounits\"],
+            ["nvidia-smi", "--query-gpu=name,utilization.gpu,temperature.gpu,memory.total,memory.used", "--format=csv,noheader,nounits"],
             stderr=subprocess.DEVNULL, timeout=2
         ).decode().strip()
         gpus = []
         for line in out.splitlines():
-            parts = [p.strip() for p in line.split(\",\")]
+            parts = [p.strip() for p in line.split(",")]
             if len(parts) >= 5:
                 gpus.append({
-                    \"name\": parts[0],
-                    \"utilization_percent\": float(parts[1]),
-                    \"temperature_c\": float(parts[2]),
-                    \"memory_total_mb\": float(parts[3]),
-                    \"memory_used_mb\": float(parts[4])
+                    "name": parts[0],
+                    "utilization_percent": float(parts[1]),
+                    "temperature_c": float(parts[2]),
+                    "memory_total_mb": float(parts[3]),
+                    "memory_used_mb": float(parts[4])
                 })
         return gpus
     except Exception:
@@ -96,7 +95,7 @@ def get_gpu():
 def get_docker():
     try:
         out = subprocess.check_output(
-            [\"docker\", \"ps\", \"-a\", \"--format\", \"{{.ID}}\\t{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Image}}\"],
+            ["docker", "ps", "-a", "--format", "{{.ID}}\t{{.Names}}\t{{.State}}\t{{.Status}}\t{{.Image}}"],
             stderr=subprocess.DEVNULL, timeout=4
         ).decode().strip()
         containers = []
@@ -105,47 +104,47 @@ def get_docker():
         stopped = 0
         if out:
             for line in out.splitlines():
-                parts = line.split(\"\\t\")
+                parts = line.split("\t")
                 if len(parts) >= 5:
                     cid, name, state, status, image = parts[0], parts[1], parts[2].lower(), parts[3], parts[4]
-                    if \"restart\" in state or \"restarting\" in status.lower():
+                    if "restart" in state or "restarting" in status.lower():
                         restarting += 1
-                        norm_state = \"restarting\"
-                    elif \"running\" in state or state == \"up\":
+                        norm_state = "restarting"
+                    elif "running" in state or state == "up":
                         running += 1
-                        norm_state = \"running\"
+                        norm_state = "running"
                     else:
                         stopped += 1
-                        norm_state = \"stopped\"
+                        norm_state = "stopped"
                     containers.append({
-                        \"id\": cid,
-                        \"name\": name,
-                        \"state\": norm_state,
-                        \"status\": status,
-                        \"image\": image
+                        "id": cid,
+                        "name": name,
+                        "state": norm_state,
+                        "status": status,
+                        "image": image
                     })
         return {
-            \"installed\": True,
-            \"running\": running,
-            \"restarting\": restarting,
-            \"stopped\": stopped,
-            \"total\": len(containers),
-            \"containers\": containers
+            "installed": True,
+            "running": running,
+            "restarting": restarting,
+            "stopped": stopped,
+            "total": len(containers),
+            "containers": containers
         }
     except Exception as e:
-        return {\"installed\": False, \"running\": 0, \"restarting\": 0, \"stopped\": 0, \"total\": 0, \"containers\": [], \"error\": str(e)}
+        return {"installed": False, "running": 0, "restarting": 0, "stopped": 0, "total": 0, "containers": [], "error": str(e)}
 
 data = {
-    \"hostname\": socket.gethostname(),
-    \"uptime_seconds\": get_uptime(),
-    \"cpu_percent\": get_cpu(),
-    \"memory\": get_memory(),
-    \"disk\": get_disk(),
-    \"gpus\": get_gpu(),
-    \"docker\": get_docker()
+    "hostname": socket.gethostname(),
+    "uptime_seconds": get_uptime(),
+    "cpu_percent": get_cpu(),
+    "memory": get_memory(),
+    "disk": get_disk(),
+    "gpus": get_gpu(),
+    "docker": get_docker()
 }
-print(\"__FLARE_JSON_START__\" + json.dumps(data) + \"__FLARE_JSON_END__\")
-"
+print("__FLARE_JSON_START__" + json.dumps(data) + "__FLARE_JSON_END__")
+PYEOF
 else
 # POSIX shell fallback when python3 is not installed
 HOST=$(hostname 2>/dev/null || uname -n)
@@ -190,7 +189,6 @@ CPU_PCT=$(awk -v l="$LOAD1" -v c="$CPUS" 'BEGIN {pct=(l/c)*100; if(pct>100)pct=1
 
 echo "__FLARE_JSON_START__{\"hostname\":\"$HOST\",\"uptime_seconds\":$UPTIME,\"cpu_percent\":$CPU_PCT,\"memory\":{\"total_bytes\":$TOTAL_MEM_BYTES,\"used_bytes\":$USED_MEM_BYTES,\"available_bytes\":$AVAIL_MEM_BYTES,\"percent\":$MEM_PCT},\"disk\":{\"total_bytes\":$DISK_TOTAL_BYTES,\"used_bytes\":$DISK_USED_BYTES,\"available_bytes\":$DISK_AVAIL_BYTES,\"percent\":$DISK_PCT},\"gpus\":[],\"docker\":{\"installed\":false,\"running\":0,\"restarting\":0,\"stopped\":0,\"total\":0,\"containers\":[]}}__FLARE_JSON_END__"
 fi
-'
 "#;
 
 pub struct Collector;
@@ -202,7 +200,7 @@ impl Collector {
         timeout_secs: u64,
     ) -> Result<(ServerMetrics, u128)> {
         let start = Instant::now();
-        let raw_output = SshClient::run_command(server, REMOTE_PROBE_SCRIPT, timeout_secs)
+        let raw_output = SshClient::run_script_via_stdin(server, REMOTE_PROBE_SCRIPT, timeout_secs)
             .await
             .with_context(|| format!("Failed to run collector probe on {}", server.id))?;
 

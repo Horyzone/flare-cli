@@ -151,6 +151,64 @@ impl SshClient {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 
+    /// Runs a script remotely by piping it into the remote shell via SSH stdin.
+    /// This completely avoids shell quoting, escaping, and command-line length limits.
+    pub async fn run_script_via_stdin(
+        server: &ServerConfig,
+        script: &str,
+        timeout_secs: u64,
+    ) -> Result<String> {
+        use tokio::io::AsyncWriteExt;
+
+        let mut cmd = TokioCommand::new("ssh");
+        let args = Self::build_ssh_args(server, false);
+        cmd.args(&args);
+        cmd.arg("sh");
+
+        cmd.stdin(Stdio::piped());
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
+
+        let mut child = cmd
+            .spawn()
+            .with_context(|| format!("Failed to invoke ssh binary for {}", server.id))?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin
+                .write_all(script.as_bytes())
+                .await
+                .with_context(|| format!("Failed to pipe script to remote host {}", server.id))?;
+            drop(stdin);
+        }
+
+        let time_limit = Duration::from_secs(timeout_secs);
+        let output = timeout(time_limit, child.wait_with_output())
+            .await
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "Script execution on {} timed out after {}s",
+                    server.id,
+                    timeout_secs
+                )
+            })?
+            .with_context(|| format!("Failed to wait for remote command on {}", server.id))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let details = if !stderr.is_empty() {
+                stderr
+            } else if !stdout.is_empty() {
+                stdout
+            } else {
+                format!("Process exited with status code {:?}", output.status.code())
+            };
+            bail!("Remote script execution on '{}' failed: {}", server.id, details);
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    }
+
     /// Spawns an interactive SSH session attached to the current terminal (inherits stdin/stdout/stderr).
     pub fn open_interactive_shell(server: &ServerConfig) -> Result<()> {
         let mut cmd = std::process::Command::new("ssh");
